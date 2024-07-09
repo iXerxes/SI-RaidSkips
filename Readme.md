@@ -1,7 +1,8 @@
-For [Saved Instances](https://github.com/SavedInstances) issue [#766](https://github.com/SavedInstances/SavedInstances/issues/766). This file is from interface version 100100.</br>
-Found at `\Interface\AddOns\SavedInstances\Modules\Progress.Lua`
+This branch contains the updated and renewed version of the raid skip tracker, built into [Saved Instances](https://github.com/SavedInstances).
 
-Lines [691](https://github.com/iXerxes/SI-RaidSkips/blob/master/Progress.lua#L691) to [2554](https://github.com/iXerxes/SI-RaidSkips/blob/master/Progress.lua#L2554) in [Progress.lua](https://github.com/iXerxes/SI-RaidSkips/blob/master/Progress.lua) contain the complete code for all raid skips.
+For [Saved Instances](https://github.com/SavedInstances), interface version 100206. SI version 10.2.7.</br>
+Replace `Progress.lua`, found at `\Interface\AddOns\SavedInstances\Modules\Progress.Lua`, with the file from this repo.
 
-- Iniside of [Progress.lua](https://github.com/iXerxes/SI-RaidSkips/blob/master/Progress.lua), `local presets` contains a table of ProgressEntry presets.
-- [Template.lua](https://github.com/iXerxes/SI-RaidSkips/blob/master/Template.lua) contains just one isolated version of these presets to make it easier to see.
+Feature suggestion being tracked in issue [#766](https://github.com/SavedInstances/SavedInstances/issues/766).
+
+![image](https://github.com/SavedInstances/SavedInstances/assets/41969028/d53631c8-a68c-44b3-9de5-284eced0b4b2)
