@@ -103,7 +103,7 @@ local presets = {
       local text
       for index = 1, #store do
         if store[index] then
-          text = (index > 1 and (text .. " / ") or "") .. (entry.difficultyNames[store[index]] or GetDifficultyInfo(store[index]))
+          text = (index > 1 and (text .. "||") or "") .. (entry.difficultyNames[store[index]] or GetDifficultyInfo(store[index]))
         end
       end
       if store.rewardWaiting then
@@ -364,6 +364,11 @@ local presets = {
       local majorFactionIDs = C_MajorFactions.GetMajorFactionIDs(LE_EXPANSION_DRAGONFLIGHT)
       for _, factionID in ipairs(majorFactionIDs) do
         local data = C_MajorFactions.GetMajorFactionData(factionID)
+        local currentRepValue, threshold = C_Reputation.GetFactionParagonInfo(factionID)
+        if currentRepValue and threshold then
+          data.renownReputationEarned = currentRepValue % threshold
+          data.renownLevelThreshold = threshold
+        end
         store[factionID] = data and {data.renownLevel, data.renownReputationEarned, data.renownLevelThreshold}
       end
     end,
@@ -376,7 +381,7 @@ local presets = {
         if not text then
           text = store[factionID] and store[factionID][1] or '0'
         else
-          text = text .. ' / ' .. (store[factionID] and store[factionID][1] or '0')
+          text = text .. "||" .. (store[factionID] and store[factionID][1] or '0')
         end
       end
 
@@ -385,7 +390,7 @@ local presets = {
           if not text then
             text = store[factionID] and store[factionID][1] or '0'
           else
-            text = text .. ' / ' .. (store[factionID] and store[factionID][1] or '0')
+            text = text .. "||" .. (store[factionID] and store[factionID][1] or '0')
           end
         end
       end
@@ -427,6 +432,7 @@ local presets = {
     end,
     -- addition info
     factionIDs = {
+      2574, -- Dream Wardens
       2564, -- Loamm Niffen
       2507, -- Dragonscale Expedition
       2503, -- Maruuk Centaur
@@ -451,6 +457,14 @@ local presets = {
       75860, -- Aiding the Accord: Researchers Under Fire
       75861, -- Aiding the Accord: Suffusion Camp
       77254, -- Aiding the Accord: Time Rift
+      77976, -- Aiding the Accord: Dreamsurge
+      78446, -- Aiding the Accord: Superbloom
+      78447, -- Aiding the Accord: Emerald Bounty
+      78861, -- Aiding the Accord
+      80385, -- Last Hurrah: Dragon Isles
+      80386, -- Last Hurrah: Zaralek Caverns and Time Rifts
+      80388, -- Last Hurrah: Emerald Dream
+      80389, -- Last Hurrah
     },
     reset = 'weekly',
     persists = true,
@@ -612,6 +626,9 @@ local presets = {
       72647, -- Ohn'ahran Plains
       72648, -- The Azure Span
       72649, -- Thaldraszus
+      74871, -- The Forbidden Reach
+      75305, -- Zaralek Cavern
+      78097, -- Emerald Dream
     },
     reset = 'weekly',
     persists = false,
@@ -687,1874 +704,1636 @@ local presets = {
     persists = false,
     fullObjective = false,
   },
-
-  ["raidskip-blackrock-foundry"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 50,
-    ["name"] = "SKIP: Blackrock Foundry",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 37029, hero = 37030, myth = 37031 },
-        -- lower = nil
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
-            local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
-
-            if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
-              for i = 1, #objectives, 1 do
-                fulfilled = fulfilled + objectives[i].numFulfilled;
-                required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
-              end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
-            else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
-            end
-          end
-        end
-      end
-    end,
-
-    ["showFunc"] = function(store, entry)
-
-      if (not store) then return end;
-
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
-
-        local display = "";
-
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
-
-        return display;
-
-      end
-
-    end,
-
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "Blackrock Foundry");
-      tip:AddLine(" ");
-
-      if (store.progress.upper == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      else
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
+  -- Time Rift
+  ['df-time-rift'] = {
+    type = 'single',
+    expansion = 9,
+    index = 16,
+    name = L["Time Rift"],
+    questID = 77836,
+    reset = 'weekly',
+    persists = false,
+    fullObjective = false,
+  },
+  -- Dreamsurge
+  ['df-dreamsurge'] = {
+    type = 'single',
+    expansion = 9,
+    index = 17,
+    name = L["Shaping the Dreamsurge"],
+    questID = 77251,
+    reset = 'weekly',
+    persists = false,
+    fullObjective = false,
+  },
+  -- A Worthy Ally: Dream Wardens
+  ['df-a-worthy-ally-dream-wardens'] = {
+    type = 'single',
+    expansion = 9,
+    index = 18,
+    name = L["A Worthy Ally: Dream Wardens"],
+    questID = 78444,
+    reset = 'weekly',
+    persists = true,
+    fullObjective = false,
+  },
+  -- The Superbloom
+  ['df-the-superbloom'] = {
+    type = 'single',
+    expansion = 9,
+    index = 19,
+    name = L["The Superbloom"],
+    questID = 78319,
+    reset = 'weekly',
+    persists = true,
+    fullObjective = false,
+  },
+  -- Blooming Dreamseeds
+  ['df-blooming-dreamseeds'] = {
+    type = 'single',
+    expansion = 9,
+    index = 20,
+    name = L["Blooming Dreamseeds"],
+    questID = 78821,
+    reset = 'weekly',
+    persists = true,
+    fullObjective = false,
+  },
+  -- Shipment of Goods
+  ['df-shipment-of-goods'] = {
+    type = 'list',
+    expansion = 9,
+    index = 21,
+    name = L["Shipment of Goods"],
+    questID = {
+      78427, -- Great Crates!
+      78428, -- Crate of the Art
+    },
+    reset = 'weekly',
+    persists = false,
+    progress = true,
+    onlyOnOrCompleted = false,
+  },
+  -- The Big Dig: Traitor's Rest
+  ['df-the-big-dig-traitors-rest'] = {
+    type = 'single',
+    expansion = 9,
+    index = 22,
+    name = L["The Big Dig: Traitor's Rest"],
+    questID = 79226,
+    reset = 'weekly',
+    persists = true,
+    fullObjective = false,
   },
 
-  ["raidskip-hellfire-citadel"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 51,
-    ["name"] = "SKIP: Hellfire Citadel",
-    ["reset"] = "none",
+-- Raid Skip: Blackrock Foundry
+["raidskip-blackrock-fountry"] = {
+  ["type"] = "custom",
+  ["index"] = 50,
+  ["name"] = "SKIP: Blackrock Foundry",
+  ["reset"] = "none",
 
+  ["func"] = function(store, entry)
+    wipe(store);
 
-    ["func"] = function(store, entry)
-      wipe(store);
+    store.questIds = {
+      [1] = { norm = 37029, hero = 37030, myth = 37031 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 39499, hero = 39500, myth = 39501 },
-        lower = { norm = 39502, hero = 39504, myth = 39505 }
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Blackrock Foundry");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
+      end;
 
-      store.progress.lower = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.lower.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.lower ~= true) then
-        store.progress.lower.myth = {};
-        store.progress.lower.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.lower.hero) or {};
-        store.progress.lower.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.lower.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.lower.norm) or {});
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-        for diff,id in pairs(store.questIDs.lower) do
-          if (type(store.progress.lower[diff]) == 'table') then
+    tip:Show();
+  end,
+
+  ["persists"] = true,
+},
+
+-- Raid Skip: Hellfire Citadel
+["raidskip-hellfire-citadel"] = {
+  ["type"] = "custom",
+  -- ["expansion"] = 9,
+  ["index"] = 51,
+  ["name"] = "SKIP: Hellfire Citadel",
+  ["reset"] = "none",
+
+  ["func"] = function(store, entry)
+    wipe(store);
+
+    store.questIds = {
+      [1] = { norm = 39499, hero = 39500, myth = 39501 }, -- Upper
+      [2] = { norm = 39502, hero = 39504, myth = 39505 } -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
+
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
+
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
+
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.lower[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.lower[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.lower[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.lower[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Hellfire Citadel");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
+      end;
 
-    end,
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-    ["showFunc"] = function(store, entry)
+    tip:Show();
+  end,
 
-      if (not store) then return end;
+  ["persists"] = true,
+},
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
+-- Raid Skip: The Emerald Nightmare
+["raidskip-emerald-nightmare"] = {
+  ["type"] = "custom",
+  ["index"] = 52,
+  ["name"] = "SKIP: The Emerald Nightmare",
+  ["reset"] = "none",
 
-        local display = "";
+  ["func"] = function(store, entry)
+    wipe(store);
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+    store.questIds = {
+      [1] = { norm = 44283, hero = 44284, myth = 44285 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-        -- Can't start lower before completing uppper.
-        if (store.progress.lower ~= nil) then
-          display = display .. '\n'
-          display = display .. format("%s %s %s",
-          store.progress.lower['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.lower['norm'].summary),
-          store.progress.lower['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.lower['hero'].summary),
-          store.progress.lower['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.lower['myth'].summary)
-        );
-        end
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-        return display;
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-      end
-
-    end,
-
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "Hellfire Citadel");
-
-      tip:AddLine(" ");
-      tip:AddLine("Upper", store.progress.upper == true and SI.questCheckMark or "");
-      if (store.progress.upper == true) then
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."    ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(" "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(" "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(" "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."    ");
-        end
-
-      else
-
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."    ");
-        end
-
-      end
-
-      tip:AddLine(" ");
-      tip:AddLine("Lower", store.progress.lower == true and SI.questCheckMark or "");
-      if (store.progress.lower == true) then
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.lower.hero == true) then
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.lower.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.myth.objectiveSummary[i].."    ");
-        end
-
-      elseif (store.progress.lower.norm == true) then
-
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.lower.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.hero.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.lower.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.myth.objectiveSummary[i].."    ");
-        end
-
-      else
-
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.lower.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.norm.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.lower.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.hero.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.lower.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.myth.objectiveSummary[i].."    ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  ["raidskip-emerald-nightmare"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 52,
-    ["name"] = "SKIP: The Emerald Nightmare",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 44283, hero = 44284, myth = 44285 },
-        -- lower = nil
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "The Emerald Nightmare");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
-    end,
+      end;
 
-    ["showFunc"] = function(store, entry)
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-      if (not store) then return end;
+    tip:Show();
+  end,
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
+  ["persists"] = true,
+},
 
-        local display = "";
+-- Raid Skip: The Nighthold
+["raidskip-nighthold"] = {
+  ["type"] = "custom",
+  ["index"] = 53,
+  ["name"] = "SKIP: The Nighthold",
+  ["reset"] = "none",
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+  ["func"] = function(store, entry)
+    wipe(store);
 
-        return display;
+    store.questIds = {
+      [1] = { norm = 45381, hero = 45382, myth = 45383 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-      end
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-    end,
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "The Emerald Nightmare");
-      tip:AddLine(" ");
-
-      if (store.progress.upper == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      else
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  ["raidskip-nighthold"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 52,
-    ["name"] = "SKIP: The Nighthold",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 45381, hero = 45382, myth = 45383 },
-        -- lower = nil
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "The Nighthold");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
-    end,
+      end;
 
-    ["showFunc"] = function(store, entry)
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-      if (not store) then return end;
+    tip:Show();
+  end,
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
+  ["persists"] = true,
+},
 
-        local display = "";
+-- Raid Skip: Tomb of Sargeras
+["raidskip-tomb-sargaras"] = {
+  ["type"] = "custom",
+  ["index"] = 54,
+  ["name"] = "SKIP: Tomb of Sargeras",
+  ["reset"] = "none",
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+  ["func"] = function(store, entry)
+    wipe(store);
 
-        return display;
+    store.questIds = {
+      [1] = { norm = 47725, hero = 47726, myth = 47727 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-      end
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-    end,
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "The Nighthold");
-      tip:AddLine(" ");
-
-      if (store.progress.upper == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      else
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  
-  ["raidskip-tomb-of-sargeras"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 53,
-    ["name"] = "SKIP: Tomb of Sargeras",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 47725, hero = 47726, myth = 47727 },
-        -- lower = nil
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Tomb of Sargeras");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
-    end,
+      end;
 
-    ["showFunc"] = function(store, entry)
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-      if (not store) then return end;
+    tip:Show();
+  end,
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
+  ["persists"] = true,
+},
 
-        local display = "";
+-- Raid Skip: Antorus, the Burning Throne
+["raidskip-antorus"] = {
+  ["type"] = "custom",
+  ["index"] = 55,
+  ["name"] = "SKIP: Antorus, the Burning Throne",
+  ["reset"] = "none",
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+  ["func"] = function(store, entry)
+    wipe(store);
 
-        return display;
+    store.questIds = {
+      [1] = { norm = 49133, hero = 49134, myth = 49135 }, -- Upper
+      [2] = { norm = 49032, hero = 49075, myth = 49076 } -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-      end
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-    end,
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "Tomb of Sargeras");
-      tip:AddLine(" ");
-
-      if (store.progress.upper == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      else
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  ["raidskip-antorus"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 54,
-    ["name"] = "SKIP: Antorus, the Burning Throne",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 49133, hero = 49134, myth = 49135 },
-        lower = { norm = 49032, hero = 49075, myth = 49076 }
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Antorus, the Burning Throne");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
+      end;
 
-      store.progress.lower = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.lower.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.lower ~= true) then
-        store.progress.lower.myth = {};
-        store.progress.lower.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.lower.hero) or {};
-        store.progress.lower.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.lower.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.lower.norm) or {});
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-        for diff,id in pairs(store.questIDs.lower) do
-          if (type(store.progress.lower[diff]) == 'table') then
+    tip:Show();
+  end,
+
+  ["persists"] = true,
+},
+
+-- Raid Skip: Castle Nathria
+["raidskip-castle-nathria"] = {
+  ["type"] = "custom",
+  ["index"] = 56,
+  ["name"] = "SKIP: Castle Nathria",
+  ["reset"] = "none",
+
+  ["func"] = function(store, entry)
+    wipe(store);
+
+    store.questIds = {
+      [1] = { norm = 62054, hero = 62055, myth = 62056 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
+
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
+
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
+
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.lower[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.lower[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.lower[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.lower[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Castle Nathria");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
+      end;
 
-    end,
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-    ["showFunc"] = function(store, entry)
+    tip:Show();
+  end,
 
-      if (not store) then return end;
+  ["persists"] = true,
+},
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
+-- Raid Skip: Sanctum of Domination
+["raidskip-sanctum-domination"] = {
+  ["type"] = "custom",
+  ["index"] = 57,
+  ["name"] = "SKIP: Sanctum of Domination",
+  ["reset"] = "none",
 
-        local display = "";
+  ["func"] = function(store, entry)
+    wipe(store);
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+    store.questIds = {
+      [1] = { norm = 64597, hero = 64598, myth = 64599 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-        -- Can't start lower before completing uppper.
-        if (store.progress.lower ~= nil) then
-          display = display .. '\n'
-          display = display .. format("%s %s %s",
-          store.progress.lower['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.lower['norm'].summary),
-          store.progress.lower['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.lower['hero'].summary),
-          store.progress.lower['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.lower['myth'].summary)
-        );
-        end
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-        return display;
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-      end
-
-    end,
-
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "Hellfire Citadel");
-
-      tip:AddLine(" ");
-      tip:AddLine("Upper", store.progress.upper == true and SI.questCheckMark or "");
-      if (store.progress.upper == true) then
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."    ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(" "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(" "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(" "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."    ");
-        end
-
-      else
-
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."    ");
-        end
-
-      end
-
-      tip:AddLine(" ");
-      tip:AddLine("Lower", store.progress.lower == true and SI.questCheckMark or "");
-      if (store.progress.lower == true) then
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.lower.hero == true) then
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.lower.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.myth.objectiveSummary[i].."    ");
-        end
-
-      elseif (store.progress.lower.norm == true) then
-
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.lower.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.hero.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.lower.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.myth.objectiveSummary[i].."    ");
-        end
-
-      else
-
-        tip:AddLine("  "..format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.lower.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.norm.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.lower.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.hero.objectiveSummary[i].."    ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine("  "..format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.lower.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.lower.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("    "..text:gsub(prog .. " ", ""), store.progress.lower.myth.objectiveSummary[i].."    ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  ["raidskip-nyalotha"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 55,
-    ["name"] = "SKIP: Ny'alotha, the Waking City",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 58373, hero = 58374, myth = 58375 },
-        -- lower = nil
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Sanctum of Domination");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
-    end,
+      end;
 
-    ["showFunc"] = function(store, entry)
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-      if (not store) then return end;
+    tip:Show();
+  end,
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
+  ["persists"] = true,
+},
 
-        local display = "";
+-- Raid Skip: Sepulcher of the First Ones
+["raidskip-sepulcher"] = {
+  ["type"] = "custom",
+  ["index"] = 58,
+  ["name"] = "SKIP: Sepulcher of the First Ones",
+  ["reset"] = "none",
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+  ["func"] = function(store, entry)
+    wipe(store);
 
-        return display;
+    store.questIds = {
+      [1] = { norm = 65764, hero = 65763, myth = 65762 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-      end
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-    end,
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "Ny'alotha, the Waking City");
-      tip:AddLine(" ");
-
-      if (store.progress.upper == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      else
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  ["raidskip-castle-nathria"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 56,
-    ["name"] = "SKIP: Castle Nathria",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 62054, hero = 62055, myth = 62056 },
-        -- lower = nil
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Sepulcher of the First Ones");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
-    end,
+      end;
 
-    ["showFunc"] = function(store, entry)
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-      if (not store) then return end;
+    tip:Show();
+  end,
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
+  ["persists"] = true,
+},
 
-        local display = "";
+-- Raid Skip: Vault of the Incarnates
+["raidskip-vault-incarnates"] = {
+  ["type"] = "custom",
+  ["index"] = 59,
+  ["name"] = "SKIP: Vault of the Incarnates",
+  ["reset"] = "none",
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+  ["func"] = function(store, entry)
+    wipe(store);
 
-        return display;
+    store.questIds = {
+      [1] = { norm = 71018, hero = 71019, myth = 71020 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-      end
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-    end,
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "Castle Nathria");
-      tip:AddLine(" ");
-
-      if (store.progress.upper == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      else
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  ["raidskip-sanctum-of-domination"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 57,
-    ["name"] = "SKIP: Sanctum of Domination",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 64597, hero = 64598, myth = 64599 },
-        -- lower = nil
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Vault of the Incarnates");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
-    end,
+      end;
 
-    ["showFunc"] = function(store, entry)
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-      if (not store) then return end;
+    tip:Show();
+  end,
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
-      else
+  ["persists"] = true,
+},
 
-        local display = "";
+-- Raid Skip: Aberrus, the Shadowed Crucible
+["raidskip-aberrus"] = {
+  ["type"] = "custom",
+  ["index"] = 60,
+  ["name"] = "SKIP: Aberrus, the Shadowed Crucible",
+  ["reset"] = "none",
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+  ["func"] = function(store, entry)
+    wipe(store);
 
-        return display;
+    store.questIds = {
+      [1] = { norm = 76083, hero = 76085, myth = 76086 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
 
-      end
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
 
-    end,
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
 
-    ["resetFunc"] = function(store, entry) end,
-
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "Sanctum of Domination");
-      tip:AddLine(" ");
-
-      if (store.progress.upper == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      else
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  ["raidskip-sepulcher"] = {
-    ["type"] = "custom",
-    -- ["expansion"] = 9,
-    ["index"] = 58,
-    ["name"] = "SKIP: Sepulcher of the First Ones",
-    ["reset"] = "none",
-
-
-    ["func"] = function(store, entry)
-      wipe(store);
-
-      store.colors = {
-        norm = "|cFFFFFFFF%s|r",
-        hero = "|cFF0070DD%s|r",
-        myth = "|cFFA335EE%s|r",
-      };
-      store.questIDs = {
-        upper = { norm = 65764, hero = 65763, myth = 65762 },
-        -- lower = nil
-      };
-      store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
-
-      store.progress.upper = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
-      if (store.progress.upper ~= true) then
-        store.progress.upper.myth = {};
-        store.progress.upper.hero = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or {};
-        store.progress.upper.norm = C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.hero) or (C_QuestLog.IsQuestFlaggedCompleted(store.questIDs.upper.norm) or {});
-
-        for diff,id in pairs(store.questIDs.upper) do
-          if (type(store.progress.upper[diff]) == 'table') then
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
             local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
 
             if (objectives) then
-              store.progress.upper[diff].objectiveSummary = {};
+              store.progress[lvl][diff].objectiveSummaryStr = {};
               for i = 1, #objectives, 1 do
                 fulfilled = fulfilled + objectives[i].numFulfilled;
                 required = required + objectives[i].numRequired;
-                store.progress.upper[diff].objectiveSummary[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
               end
-              store.progress.upper[diff].summary = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
             else
-              store.progress.upper[diff].summary = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
             end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
+      else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
+
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
+
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
+
+        if (highest == -1) then display = display..notStartedIcon end;
+
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
+
+    return display;
+  end,
+
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Aberrus, the Shadowed Crucible");
+    tip:AddLine(" ");
+
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
+
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
+
+      else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
+
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
           end
         end
-      end
-    end,
+      end;
 
-    ["showFunc"] = function(store, entry)
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-      if (not store) then return end;
+    tip:Show();
+  end,
 
-      if (store.progress.upper == true and (store.progress.lower == nil or store.progress.lower == true)) then
-        return SI.questCheckMark;
+  ["persists"] = true,
+},
+
+-- Raid Skip: Amirdrassil, the Dream's Hope
+["raidskip-amirdrassil"] = {
+  ["type"] = "custom",
+  ["index"] = 61,
+  ["name"] = "SKIP: Amirdrassil, the Dream's Hope",
+  ["reset"] = "none",
+
+  ["func"] = function(store, entry)
+    wipe(store);
+
+    store.questIds = {
+      [1] = { norm = 78600, hero = 78601, myth = 78602 }, -- Upper
+      -- [2] = nil -- Lower
+    };
+    store.progress = {}; -- {upper|lower}.{difficulty} = boolean|table
+
+    -- Loop through each level (upper/lower) and store the progress of each difficulty.
+    for lvl, diffs in ipairs(store.questIds) do
+
+      store.progress[lvl] = C_QuestLog.IsQuestFlaggedCompleted(diffs.myth) or {}; -- Unlocking a skip unlocks for all difficulties below.
+      if (store.progress[lvl] ~= true) then
+        store.progress[lvl].myth = { id = diffs.myth };
+        store.progress[lvl].hero = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or { id = diffs.hero };
+        store.progress[lvl].norm = C_QuestLog.IsQuestFlaggedCompleted(diffs.hero) or (C_QuestLog.IsQuestFlaggedCompleted(diffs.norm) or { id = diffs.norm });
+
+        for diff, id in pairs(diffs) do
+          if (type(store.progress[lvl][diff]) == 'table') then
+            local objectives, fulfilled, required = C_QuestLog.GetQuestObjectives(id), 0, 0;
+
+            if (objectives) then
+              store.progress[lvl][diff].objectiveSummaryStr = {};
+              for i = 1, #objectives, 1 do
+                fulfilled = fulfilled + objectives[i].numFulfilled;
+                required = required + objectives[i].numRequired;
+                store.progress[lvl][diff].objectiveSummaryStr[i] = format("%s/%s", objectives[i].numFulfilled, objectives[i].numRequired);
+              end
+              store.progress[lvl][diff].summaryStr = format("%s/%s", fulfilled, required);
+              store.progress[lvl][diff].summaryFul = fulfilled;
+              store.progress[lvl][diff].summaryReq = required;
+            else
+              store.progress[lvl][diff].summaryStr = "?/?"; -- If the quest isn't cached and needs to be queried, provide some fallback.
+            end
+
+          end;
+        end;
+
+      end;
+
+    end;
+
+  end,
+
+  ["showFunc"] = function(store, entry)
+    if (not store) then return end;
+
+    -- All skips for this raid have been unlocked.
+    if (store.progress[1] == true and (store.progress[2] == nil or store.progress[2] == true)) then return SI.questCheckMark end;
+
+    local notStartedIcon, lesserCompletedIcon, display = "\124A:UI-LFG-DeclineMark:14:14\124a", "\124A:FlightPath:14:14\124a", "";
+
+    -- Loop through each level (upper/lower) and build the display string.
+    for lvl, diffs in ipairs(store.progress) do
+      if (store.progress[lvl] == true) then
+        display = display .. SI.questCheckMark;
       else
+        
+        -- A difficulty lower than Mythic, but not Mythic has been unlocked.
+        if ((store.progress[lvl].norm == true or store.progress[lvl].hero == true) and store.progress[lvl].myth ~= true) then display = display..lesserCompletedIcon.." " end;
 
-        local display = "";
+        -- Display only the highest difficulty with progress.
+        local highest = -1; -- 0 = Normal; 1 = Heroic; 2 = Mythic
+        highest = (diffs.norm ~= true and diffs.norm.summaryFul > 0) and 0 or highest;
+        highest = (diffs.hero ~= true and diffs.hero.summaryFul > 0) and 1 or highest;
+        highest = (diffs.myth ~= true and diffs.myth.summaryFul > 0) and 2 or highest;
 
-        if (store.progress.upper == true) then
-          display = SI.questCheckMark;
-        else
-          display = format("%s %s %s",
-          store.progress.upper['norm'] == true and SI.questCheckMark or format(store.colors.norm, store.progress.upper['norm'].summary),
-          store.progress.upper['hero'] == true and SI.questCheckMark or format(store.colors.hero, store.progress.upper['hero'].summary),
-          store.progress.upper['myth'] == true and SI.questCheckMark or format(store.colors.myth, store.progress.upper['myth'].summary)
-        );
-        end
+        if (highest == 0) then display = display..format("%s%s", ITEM_STANDARD_COLOR_CODE, diffs.norm.summaryStr); end;
+        if (highest == 1) then display = display..format("%s%s", ITEM_SUPERIOR_COLOR_CODE, diffs.hero.summaryStr) end;
+        if (highest == 2) then display = display..format("%s%s", ITEM_EPIC_COLOR_CODE, diffs.myth.summaryStr) end;
 
-        return display;
+        if (highest == -1) then display = display..notStartedIcon end;
 
-      end
+      end;
+      if (#store.progress > 1) then display = display .. '\n' end;
+    end;
 
-    end,
+    return display;
+  end,
 
-    ["resetFunc"] = function(store, entry) end,
+  ["tooltipFunc"] = function(store, entry, toon)
+    local indentStr, tip = "  ", Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
+    tip:AddHeader(SI:ClassColorToon(toon), "Amirdrassil, the Dream's Hope");
+    tip:AddLine(" ");
 
-    ["tooltipFunc"] = function(store, entry, toon)
-      local tip = Tooltip:AcquireIndicatorTip(2, 'LEFT', 'RIGHT');
-      tip:AddHeader(SI:ClassColorToon(toon), "Sepulcher of the First Ones");
-      tip:AddLine(" ");
+    for lvl, diffs in ipairs(store.progress) do
+      if (#store.progress > 1) then tip:AddLine( (lvl == 1) and "\124A:Garr_LevelBadge_1:25:25\124a" or "\124A:Garr_LevelBadge_2:25:25\124a") end;
 
-      if (store.progress.upper == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), SI.questCheckMark);
-
-      elseif (store.progress.upper.hero == true) then
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      elseif (store.progress.upper.norm == true) then
-
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), SI.questCheckMark);
-        tip:AddLine(" ");
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
-
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
+      if (store.progress[lvl] == true) then
+        tip:AddLine(ITEM_STANDARD_COLOR_CODE..PLAYER_DIFFICULTY1, SI.questCheckMark);
+        tip:AddLine(ITEM_SUPERIOR_COLOR_CODE..PLAYER_DIFFICULTY2, SI.questCheckMark);
+        tip:AddLine(ITEM_EPIC_COLOR_CODE..PLAYER_DIFFICULTY6, SI.questCheckMark);
 
       else
+        local orderedDiffs, diffColors, diffNames = { [1] = diffs.norm, [2] = diffs.hero, [3] = diffs.myth }, { [1] = ITEM_STANDARD_COLOR_CODE, [2] = ITEM_SUPERIOR_COLOR_CODE, [3] = ITEM_EPIC_COLOR_CODE }, { [1] = PLAYER_DIFFICULTY1, [2] = PLAYER_DIFFICULTY2, [3] = PLAYER_DIFFICULTY6 };
+        for i, diff in ipairs(orderedDiffs) do
+          if (diff == true) then 
+            tip:AddLine(diffNames[i], SI.questCheckMark);
+          else
 
-        tip:AddLine(format(store.colors.norm, PLAYER_DIFFICULTY1 ), store.progress.upper.norm.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.norm);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.norm.objectiveSummary[i].."  ");
+            tip:AddLine(diffColors[i]..diffNames[i], diffColors[i]..diff.summaryStr);
+            local objectives = C_QuestLog.GetQuestObjectives(diff.id);
+            for i = 1, #objectives, 1 do
+              local text = objectives[i].text;
+              local prog = string.match(text, "%d/%d");
+              tip:AddLine(indentStr..text:gsub(prog, ""), diff.objectiveSummaryStr[i]..indentStr);
+            end
+
+          end
         end
+      end;
 
-        tip:AddLine(" ");
+      if (#store.progress > 1) then tip:AddLine('\n') end;
+    end;
 
-        tip:AddLine(format(store.colors.hero, PLAYER_DIFFICULTY2 ), store.progress.upper.hero.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.hero);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.hero.objectiveSummary[i].."  ");
-        end
+    tip:Show();
+  end,
 
-        tip:AddLine(" ");
-
-        tip:AddLine(format(store.colors.myth, PLAYER_DIFFICULTY6 ), store.progress.upper.myth.summary);
-        local objectives = C_QuestLog.GetQuestObjectives(store.questIDs.upper.myth);
-        for i = 1, #objectives, 1 do
-          local text = objectives[i].text;
-          local prog = string.match(text, "%d/%d");
-          tip:AddLine("  "..text:gsub(prog .. " ", ""), store.progress.upper.myth.objectiveSummary[i].."  ");
-        end
-
-      end
-
-      tip:Show();
-    end,
-            
-
-
-    ["questID"] = 1,
-    ["fullObjective"] = false,
-    ["persists"] = true,
-  },
-
-  
-  
+  ["persists"] = true,
+},
 
 }
 
@@ -2576,17 +2355,14 @@ local function UpdateQuestStore(store, questID)
     return false
   else
     local showText
-    local allFinished = true
     local leaderboardCount = C_QuestLog.GetNumQuestObjectives(questID)
     for i = 1, leaderboardCount do
-      local text, objectiveType, finished, numFulfilled, numRequired = GetQuestObjectiveInfo(questID, i, false)
+      local text, objectiveType, _, numFulfilled, numRequired = GetQuestObjectiveInfo(questID, i, false)
       ---@cast text string
       ---@cast objectiveType "item"|"object"|"monster"|"reputation"|"log"|"event"|"player"|"progressbar"
-      ---@cast finished boolean
+      ---@cast _ boolean
       ---@cast numFulfilled number
       ---@cast numRequired number
-
-      allFinished = allFinished and finished
 
       local objectiveText
       if objectiveType == 'progressbar' then
@@ -2610,7 +2386,7 @@ local function UpdateQuestStore(store, questID)
 
     store.show = true
     store.isComplete = false
-    store.isFinish = allFinished
+    store.isFinish = C_QuestLog.IsComplete(questID)
     store.leaderboardCount = leaderboardCount
     store.text = showText
 
@@ -3422,7 +3198,7 @@ function Module:IsEntryContainsQuest(entry, questID)
   if entry.type == 'single' then
     ---@cast entry SingleQuestEntry
     return entry.questID == questID
-  elseif entry.type == 'list' or entry.type == 'list' then
+  elseif entry.type == 'any' or entry.type == 'list' then
     ---@cast entry AnyQuestEntry|QuestListEntry
     return tContains(entry.questID, questID)
   elseif entry.type == 'custom' and entry.relatedQuest then
